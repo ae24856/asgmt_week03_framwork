@@ -213,12 +213,24 @@ function createApp() {
       // === 4. 路由查找與執行 ===
       // const routeHandler = app._routes[method]?.[urlStr];
       const routeHandler = app._routes[method]?.[parsedUrl.pathname];
-      if (routeHandler) {
-        routeHandler(req, res);
-      } else if (app._tryStatic(req, res)) {
-        // 靜態檔案成功處理
-      } else {
-        app._notFoundHandler(req, res);
+      // if (routeHandler) {
+      //   routeHandler(req, res);
+      // } else if (app._tryStatic(req, res)) {
+      //   // 靜態檔案成功處理
+      // } else {
+      //   app._notFoundHandler(req, res);
+      // }
+
+      try {
+        if (routeHandler) {
+          routeHandler(req, res);
+        } else if (app._tryStatic(req, res)) {
+          // 靜態檔案成功處理
+        } else {
+          app._notFoundHandler(req, res);
+        }
+      } catch (err) {
+        app._errorHandler(err, req, res);
       }
 
 
