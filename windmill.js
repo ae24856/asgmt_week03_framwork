@@ -12,6 +12,10 @@ function createApp() {
       res.writeHead(404, { 'Content-Type': 'text/html; charset=utf-8' });
       res.end('<h1>404 Not Found</h1>');
     },
+    // 讓外面可以用 app.notFound() 來自訂 404 頁面
+    notFound(handler) {
+      this._notFoundHandler = handler;
+    },
     _errorHandler: (err, req, res) => {
       console.error("💥 Global Error:", err);
       res.writeHead(500, { 'Content-Type': 'text/html; charset=utf-8' });
@@ -42,29 +46,7 @@ function createApp() {
     console.log("🔌 有客戶端連線！");
     let requestData = '';
 
-    // socket.on("data", (chunk) => {
-    //   requestData += chunk.toString();
-    //   // 思考：如何判斷請求是否完整接收？（提示：HTTP 請求頭中有 Content-Length）
-    //   // 簡化處理：本次作業中，你可以假設小請求一次 'data' 事件就能收完。
-    //   // 但可以思考一下，如果請求很大，分多次 chunk 過來怎麼辦？
-    // });
-
-    //   socket.on("end", () => { // 當客戶端發送完畢時 (例如瀏覽器發送GET請求後，會立即發送FIN)
-    //       if (!requestData) return; // 沒有數據則不處理
-
-    //       console.log("📄 完整接收到數據:\n", requestData);
-    //       // 在這裡開始解析請求，並調用路由處理等邏輯
-    //       // 你需要將 requestData 傳遞給後續的處理器
-
-    //       // 1. 解析請求 (method, url, headers, body) -> 封裝成 req 物件
-    //       // 2. 根據 method 和 url 查找路由
-    //       // 3. 執行對應的路由處理函數，傳入 req 和 res 物件
-    //       // 4. 如果沒有匹配的路由，調用 _notFoundHandler
-    //       // 5. 如果處理過程中發生錯誤，調用 _errorHandler
-
-    //       // 初始的 socket.end() 可以在 res.end() 中調用，或者由框架統一處理
-    //   });
-    socket.on("data", (chunk) => {  //監聽對方關閉連線
+    socket.on("data", (chunk) => { 
       requestData += chunk.toString();
       let contentLength = 0;
 
@@ -96,13 +78,6 @@ function createApp() {
         // 尚未收完body，繼續等待
         return;
       }
-
-
-
-
-
-
-
 
       // === 1. 解析 HTTP 請求 ===
       // 先分 headers & body
@@ -197,30 +172,16 @@ function createApp() {
         },
         status(code) {
           this.statusCode = code;
-          return this;
+          return this; // 可以連續調用同一個物件上的其他方法
         },
         json(data) {
           this.setHeader('Content-Type', 'application/json; charset=utf-8');
           this.send(data);  // 直接送物件，send裡會幫你 stringify
         }
-
-
-
-
-
       };
 
       // === 4. 路由查找與執行 ===
-      // const routeHandler = app._routes[method]?.[urlStr];
       const routeHandler = app._routes[method]?.[parsedUrl.pathname];
-      // if (routeHandler) {
-      //   routeHandler(req, res);
-      // } else if (app._tryStatic(req, res)) {
-      //   // 靜態檔案成功處理
-      // } else {
-      //   app._notFoundHandler(req, res);
-      // }
-
       try {
         if (routeHandler) {
           routeHandler(req, res);
@@ -232,9 +193,6 @@ function createApp() {
       } catch (err) {
         app._errorHandler(err, req, res);
       }
-
-
-
     });
 
     socket.on("error", (err) => {
@@ -243,52 +201,58 @@ function createApp() {
     });
 
   });
-  const fs = require('fs');
-  const path = require('path');
 
   app._tryStatic = function (req, res) {
     if (!app._staticDir) return false;
-
-    const reqPath = decodeURIComponent(req.path); // 例如 /style.css
-    const targetPath = path.join(app._staticDir, reqPath);      // 合併路徑
-    const resolved = path.resolve(targetPath);                  // 轉絕對路徑
-
-    // 安全檢查：不能跳出靜態資料夾
+  
+    const reqPath = decodeURIComponent(req.path);
+    const targetPath = path.join(app._staticDir, reqPath);
+    const resolved = path.resolve(targetPath);
+  
     if (!resolved.startsWith(app._staticDir)) {
       return false;
     }
-
+  
     if (fs.existsSync(resolved) && fs.statSync(resolved).isFile()) {
-      const ext = path.extname(resolved);
+      const ext = path.extname(resolved).toLowerCase();
       const mime = {
         '.html': 'text/html',
         '.css': 'text/css',
         '.js': 'application/javascript',
         '.png': 'image/png',
         '.jpg': 'image/jpeg',
+        '.jpeg': 'image/jpeg',
+        '.gif': 'image/gif',
+        '.svg': 'image/svg+xml',
+        '.json': 'application/json',
       }[ext] || 'application/octet-stream';
-
-      const stream = fs.createReadStream(resolved);
+  
       res.writeHead(200, { 'Content-Type': mime });
-
-      let fileData = '';
-      stream.on('data', chunk => {
-        fileData += chunk;
+  
+      const chunks = [];
+      const stream = fs.createReadStream(resolved);
+  
+      stream.on('data', (chunk) => {
+        chunks.push(chunk);
       });
+  
       stream.on('end', () => {
-        res.end(fileData);
+        // 合併所有 Buffer
+        const buffer = Buffer.concat(chunks);
+        // 直接用 buffer 結束回應，不用編碼
+        res.end(buffer);
       });
-      stream.on('error', err => {
+  
+      stream.on('error', (err) => {
         app._errorHandler(err, req, res);
       });
-
+  
       return true;
-
     }
-
+  
     return false;
   };
-
+  
   app.listen = (port, callback) => {
     server.listen(port, callback);
   };

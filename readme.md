@@ -20,3 +20,12 @@ Windmill.js 是一個簡易的 Node.js HTTP 框架，提供路由註冊、靜態
 | 靜態資源目錄         | N/A  | 提供 public 目錄下的靜態檔案     | 靜態檔案（由請求路徑指定）  |
 | 自訂 404 頁面      | N/A  | 所有未匹配路由時呼叫             | 無              |
 | 全域錯誤處理         | N/A  | 所有路由錯誤時觸發              | 錯誤物件           |
+
+
+res 提供的方法
+res.writeHead(statusCode, headers)
+res.end(content)
+res.send(data)             // 自動判斷文字或 JSON
+res.status(code)           // 設定狀態碼
+res.json(data)             // JSON 自動設定 header 與 stringify
+

@@ -1,6 +1,8 @@
 const net = require("node:net");
 const createApp = require('./windmill'); // 假設你的框架叫做 windmill.js
 const app = createApp();
+const fs = require('fs');
+const path = require('path');
 
 app.get('/', (req, res) => {
   console.log("進到首頁路由");
@@ -8,8 +10,13 @@ app.get('/', (req, res) => {
   res.send('<h1>歡迎來到 Windmill.js 打造的首頁!</h1>');
 });
 
+// app.get('/about', (req, res) => {
+//   res.send('<h1>這是關於我們頁面</h1>');
+// });
+
 app.get('/about', (req, res) => {
-  res.send('<h1>這是關於我們頁面</h1>');
+  res.status(302).setHeader('Location', '/about.html');
+  res.end();
 });
 
 app.post('/submit-data', (req, res) => {
@@ -42,8 +49,13 @@ app.post('/api/echo', (req, res) => {
 
 app.static('public');
 
+// app.notFound((req, res) => {
+//   res.status(404).send('<h1>:( 自訂的 404 頁面 - 資源不存在</h1>');
+// });
+
+const notFoundPage = fs.readFileSync(path.resolve(__dirname, 'public', 'notFound.html'), 'utf-8');
 app.notFound((req, res) => {
-  res.status(404).send('<h1>:( 自訂的 404 頁面 - 資源不存在</h1>');
+  res.status(404).send(notFoundPage);
 });
 
 app.onError((err, req, res) => {
