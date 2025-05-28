@@ -164,9 +164,18 @@ function createApp() {
             .map(([key, value]) => `${key}: ${value}`)
             .join('\r\n');
 
+          // 先寫 response line + headers + 空行
+          socket.write(`${responseLine}${headersText}\r\n\r\n`);
+
+          if (Buffer.isBuffer(content)) {
+            socket.write(content); // 直接寫二進位 Buffer
+          } else {
+            socket.write(content); // 字串直接寫
+          }
+
           // 把 HTTP 回應 原始字串寫進 socket 傳給客戶端瀏覽器
           // 完整寫出：status line + headers + 空行 + body
-          socket.write(`${responseLine}${headersText}\r\n\r\n${content}`);
+          // socket.write(`${responseLine}${headersText}\r\n\r\n${content}`);
 
           // 關閉連線
           socket.end(() => {
@@ -238,7 +247,9 @@ function createApp() {
       reqPath = '/index.html';
     }
     const targetPath = path.join(app._staticDir, reqPath);
-    const resolved = path.resolve(targetPath);
+    const resolved = path.resolve(targetPath);  
+    // path.join() 是字串合併，不會解析 ..、.
+    // path.resolve() 會回傳「絕對路徑且標準化」結果，解析 ..、.
   
     if (!resolved.startsWith(app._staticDir)) {
       return false;
@@ -255,7 +266,6 @@ function createApp() {
         '.json': 'application/json',
       }[ext] || 'application/octet-stream';
   
-      res.writeHead(200, { 'Content-Type': mime });
       // 處理圖片 ?
       const chunks = [];
       const stream = fs.createReadStream(resolved);
@@ -267,27 +277,16 @@ function createApp() {
       stream.on('end', () => {
         // 合併所有 Buffer
         const buffer = Buffer.concat(chunks);
+        // console.log('圖片 buffer 長度:', buffer.length);
+        res.writeHead(200, { 'Content-Type': mime });  // 這裡設定標頭
         // 直接用 buffer 結束回應，不用編碼
         res.end(buffer);
       });
       stream.on('error', (err) => {
         app._errorHandler(err, req, res);
       });
-
-      // const stream = fs.createReadStream(resolved);
-      // stream.on('data', (chunk) => {
-      //   res.write(chunk);  // 你自己實作的 res.write()，確保是輸出二進位資料
-      // });
-      // stream.on('end', () => {
-      //   res.end();
-      // });
-      // stream.on('error', (err) => {
-      //   app._errorHandler(err, req, res);
-      // });
-      
       return true;
     }
-  
     return false;
   };
   
